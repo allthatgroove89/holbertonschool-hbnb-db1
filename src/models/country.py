@@ -3,7 +3,12 @@ Country related functionality
 """
 
 
-class Country:
+from flask_sqlalchemy import SQLAlchemy
+from typing import List
+from repository import db
+
+
+class Country(db.Model):
     """
     Country representation
 
@@ -11,19 +16,13 @@ class Country:
 
     This class is used to get and list countries
     """
-
-    name: str
-    code: str
-    cities: list
-
-    def __init__(self, name: str, code: str, **kw) -> None:
-        """Dummy init"""
-        super().__init__(**kw)
-        self.name = name
-        self.code = code
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128), nullable=False)
+    code = db.Column(db.String(2), unique=True)
+    cities = db.relationship('City', back_populates='country', lazy=True)
 
     def __repr__(self) -> str:
-        """Dummy repr"""
+        """Country representation"""
         return f"<Country {self.code} ({self.name})>"
 
     def to_dict(self) -> dict:
@@ -31,32 +30,44 @@ class Country:
         return {
             "name": self.name,
             "code": self.code,
+            "cities": [city.name for city in self.cities] if self.cities else []
         }
-
-    @staticmethod
-    def get_all() -> list["Country"]:
-        """Get all countries"""
-        from src.persistence import repo
-
-        countries: list["Country"] = repo.get_all("country")
-
-        return countries
-
-    @staticmethod
-    def get(code: str) -> "Country | None":
-        """Get a country by its code"""
-        for country in Country.get_all():
-            if country.code == code:
-                return country
-        return None
-
-    @staticmethod
-    def create(name: str, code: str) -> "Country":
+    @classmethod
+    def create(cls, name: str, code: str) -> "Country":
         """Create a new country"""
-        from src.persistence import repo
+        new_country = cls(name=name, code=code)
+        db.session.add(new_country)
+        db.session.commit()
+        return new_country
 
-        country = Country(name, code)
+    @classmethod
+    def get_all(cls) -> List["Country"]:
+        """Get all countries"""
+        return cls.query.all()
 
-        repo.save(country)
+    @classmethod
+    def get(cls, code: str) -> "Country | None":
+        """Get a country by its code"""
+        return cls.query.filter_by(code=code).first()
 
-        return country
+    @classmethod
+    def update(cls, code: str, **kw) -> bool:
+        """Update a country by its code with provided keyword arguments."""
+        country_to_update = cls.query.filter_by(code=code).first()
+        if country_to_update:
+            for key, value in kw.item():
+                if hasattr(country_to_update, key):
+                    setattr(country_to_update, key, value)
+            db.session.commit()
+            return True
+        return False
+
+    @classmethod
+    def delete(cls, code:str) -> bool:
+        """Delete a country by its code."""
+        country_to_delete = cls.query.filter_by(code=code).first()
+        if country_to_delete:
+            db.session.delete(country_to_delete)
+            db.session.commit()
+            return True
+        return False

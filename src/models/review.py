@@ -2,32 +2,24 @@
 Review related functionality
 """
 
-from src.models.base import Base
-from src.models.place import Place
-from src.models.user import User
+from sqlalchemy.sql import func
+from db import db
 
-
-class Review(Base):
+class Review(db.Model):
     """Review representation"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    place_id = db.Column(db.Integer, db.ForeignKey('place.id'), nullable=False)
+    user_id = db.Column(db.Integer, nullable=False)
+    comment = db.Column(db.String(120), nullable=False)
+    rating = db.Column(db.Float, nullable=False)
+    created_at = db.Column(db.DateTime, default=func.now())
+    updated_at = db.Column(db.DateTime, default=func.now, onupdate=func.now)
+    # Relationships Def
 
-    place_id: str
-    user_id: str
-    comment: str
-    rating: float
-
-    def __init__(
-        self, place_id: str, user_id: str, comment: str, rating: float, **kw
-    ) -> None:
-        """Dummy init"""
-        super().__init__(**kw)
-
-        self.place_id = place_id
-        self.user_id = user_id
-        self.comment = comment
-        self.rating = rating
 
     def __repr__(self) -> str:
-        """Dummy repr"""
+        """Review repr"""
         return f"<Review {self.id} - '{self.comment[:25]}...'>"
 
     def to_dict(self) -> dict:
@@ -38,44 +30,54 @@ class Review(Base):
             "user_id": self.user_id,
             "comment": self.comment,
             "rating": self.rating,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
-    @staticmethod
-    def create(data: dict) -> "Review":
+    @classmethod
+    def create(cls, data: dict) -> "Review":
         """Create a new review"""
-        from src.persistence import repo
-
-        user: User | None = User.get(data["user_id"])
-
-        if not user:
-            raise ValueError(f"User with ID {data['user_id']} not found")
-
-        place: Place | None = Place.get(data["place_id"])
-
-        if not place:
-            raise ValueError(f"Place with ID {data['place_id']} not found")
-
-        new_review = Review(**data)
-
-        repo.save(new_review)
-
+        new_review = cls(
+            name=data.get("name"),
+            place_id=data("place_id"),
+            user_id=data("user_id"),
+            comment=data("comment"),
+            rating=data("rating")
+        )
+        db.session.add(new_review)
+        db.session.commit
         return new_review
 
-    @staticmethod
-    def update(review_id: str, data: dict) -> "Review | None":
+    @classmethod
+    def get(cls, review_id) -> "Review | None":
+        """Retreives Review"""
+        return cls.query.get(review_id)
+
+    @classmethod
+    def get_all(cls) -> list:
+        """Retrieves all Reviews by list"""
+        return cls.query.all()
+
+    @classmethod
+    def update(cls, review_id: str, data: dict) -> "Review | None":
         """Update an existing review"""
-        from src.persistence import repo
-
-        review = Review.get(review_id)
-
+        review = cls.query.get(review_id)
         if not review:
             raise ValueError("Review not found")
 
-        for key, value in data.items():
-            setattr(review, key, value)
-
-        repo.update(review)
-
+        for key, value in data.item():
+            if hasattr(review, key):
+                setattr(review, key, value)
+        db.session.commit()
         return review
+
+    @classmethod
+    def delete(cls,review_id:str) -> bool:
+        """Deletes existing review"""
+        review = cls.query.get(review_id)
+
+        if not review:
+            raise ValueError("Review not found")
+        db.session.delete(review)
+        db.session.commit()
+        return True

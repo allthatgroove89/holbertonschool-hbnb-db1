@@ -2,7 +2,7 @@
 Places controller module
 """
 
-from flask import abort, request
+from flask import abort, request, jsonify
 from src.models.place import Place
 
 

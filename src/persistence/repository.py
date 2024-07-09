@@ -1,14 +1,14 @@
 """ Repository pattern for data access layer """
 
 from abc import ABC, abstractmethod
-
+from typing import Any
 
 class Repository(ABC):
     """Abstract class for repository pattern"""
-
     @abstractmethod
-    def reload(self) -> None:
-        """Reload data to the repository"""
+    def create(cls, **kwargs) -> Any:
+        """Create a new instance of the class"""
+        pass
 
     @abstractmethod
     def get_all(self, model_name: str) -> list:
@@ -25,6 +25,11 @@ class Repository(ABC):
     @abstractmethod
     def update(self, obj) -> None:
         """Update an object"""
+
+    @abstractmethod
+    def to_dict(self) -> dict:
+        """Convert an object to a dictionary"""
+        pass
 
     @abstractmethod
     def delete(self, obj) -> bool:
